@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A1 Computer Vision</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+    <style>
+        /* Estilos gerais e responsividade */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #fafafa;
+            text-align: center;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            width: 100%;
+        }
+
+        /* Estilo para o título principal */
+        h1 {
+            font-size: 3em;
+            margin: 0;
+            color: #333;
+        }
+
+        /* Estilo para o texto abaixo do título */
+        p.description {
+            font-size: 1.2em;
+            margin: 10px 0 40px 0;
+            color: #666;
+            max-width: 800px;
+            line-height: 1.6;
+            text-align: justify;
+        }
+
+        /* Estilos para a webcam e layout */
+        .webcam-style canvas {
+            border-radius: 20px;
+            width: 100%;
+            max-width: 500px;
+            height: auto;
+            object-fit: cover;
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        /* Estilo para títulos menores */
+        h2 {
+            font-size: 1.5em;
+            margin: 10px 0;
+            color: #3b82f6;
+        }
+
+        /* Estilo da previsão e da barra de progresso */
+        .label-style {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .prediction-container {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        .label {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress {
+            height: 100%;
+            background-color: #3b82f6;
+            width: 0;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5em;
+            }
+
+            p.description {
+                font-size: 1em;
+            }
+
+            h2 {
+                font-size: 1.3em;
+            }
+
+            .webcam-style canvas {
+                max-width: 300px;
+            }
+
+            .label-style {
+                max-width: 300px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            p.description {
+                font-size: 0.9em;
+            }
+
+            h2 {
+                font-size: 1.1em;
+            }
+
+            .webcam-style canvas {
+                max-width: 250px;
+            }
+
+            .label-style {
+                max-width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>A1 Computer Vision Demo</h1><br>
+        <p class="description">A A1 Consultoria & Treinamentos utiliza a visão computacional para transformar processos organizacionais e potencializar o aprendizado em treinamentos, integrando tecnologias de ponta à realidade das fábricas.
+
+            <br><br>Nas consultorias, aplicamos soluções baseadas em visão computacional para monitoramento de produção em tempo real, inspeção de qualidade automatizada e detecção de anomalias, otimizando o fluxo de trabalho e reduzindo desperdícios, de acordo com os princípios do Lean Manufacturing. 
+            Isso permite que as empresas visualizem dados críticos com precisão, melhorando a tomada de decisão e a eficiência operacional.</p>
+
+        <!-- Título pequeno acima da webcam -->
+        <h2>Visualização da Webcam</h2>
+
+        <!-- Container da Webcam -->
+        <div id="webcam-container" class="webcam-style"></div>
+
+        <!-- Título pequeno abaixo da webcam -->
+        <h2>Resultados da Classificação</h2>
+
+        <!-- Container das previsões -->
+        <div id="label-container" class="label-style"></div>
+        <p class="description">Nos treinamentos, a visão computacional é usada para criar dinâmicas práticas e interativas. Utilizamos ferramentas de IA para que os participantes possam visualizar o impacto de melhorias e aplicar conceitos como 8D e Six Sigma diretamente em cenários simulados. Além disso, nossos sistemas ajustam a dificuldade dos exercícios de forma dinâmica, garantindo que cada colaborador tenha uma experiência de aprendizado personalizada e eficaz.
+
+            Essa abordagem, que combina tecnologia com práticas de gestão tradicionais, acelera a transformação digital nas indústrias, alinhando-se com os pilares da Indústria 4.0.</p>
+        
+    </div>
+
+    
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/OJroPJc3T/";
+
+        let model, webcam, labelContainer, maxPredictions;
+
+        // Carregar o modelo de imagem e configurar a webcam
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            // Carregar o modelo e os metadados
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // Configurar a webcam
+            const flip = true; // Inverter a imagem da webcam
+            webcam = new tmImage.Webcam(400, 400, flip); // Definir o tamanho da webcam
+            await webcam.setup(); // Solicitar acesso à webcam
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            // Adicionar o canvas da webcam ao DOM
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+
+            // Adicionar divs para previsões e barras de progresso
+            for (let i = 0; i < maxPredictions; i++) {
+                const predictionContainer = document.createElement("div");
+                predictionContainer.className = "prediction-container";
+
+                const label = document.createElement("div");
+                label.className = "label";
+                predictionContainer.appendChild(label);
+
+                const progressBar = document.createElement("div");
+                progressBar.className = "progress-bar";
+                const progress = document.createElement("div");
+                progress.className = "progress";
+                progressBar.appendChild(progress);
+
+                predictionContainer.appendChild(progressBar);
+                labelContainer.appendChild(predictionContainer);
+            }
+        }
+
+        async function loop() {
+            webcam.update(); // Atualizar o frame da webcam
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        // Função para fazer a predição
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            for (let i = 0; i < maxPredictions; i++) {
+                const probability = (prediction[i].probability * 100).toFixed(2); // Converter para percentual
+                const classPrediction = `${prediction[i].className}: ${probability}%`;
+
+                const label = labelContainer.childNodes[i].querySelector('.label');
+                const progress = labelContainer.childNodes[i].querySelector('.progress');
+
+                label.innerHTML = classPrediction;
+                progress.style.width = probability + '%'; // Ajustar a largura da barra de progresso
+            }
+        }
+
+        // Iniciar a webcam e o modelo ao carregar a página
+        window.onload = init;
+    </script>
+</body>
+</html>
